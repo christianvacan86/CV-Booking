@@ -44,7 +44,9 @@ export default function ReservationModal({
     || reservation?.userId === currentUser.id;
 
   const [title, setTitle] = useState(reservation?.title ?? '');
-  const [organizer] = useState(reservation?.organizer ?? currentUser.name);
+  // En modo tablet el organizador es quien usa la tablet en ese momento (editable)
+  const isTablet = currentUser.role === 'tablet';
+  const [organizer, setOrganizer] = useState(reservation?.organizer ?? (isTablet ? '' : currentUser.name));
   const [roomId, setRoomId] = useState(reservation?.roomId ?? initialRoomId ?? rooms[0]?.id ?? '');
   const [date, setDate] = useState(
     reservation?.date ?? (initialDate ? formatDateISO(initialDate) : formatDateISO(new Date()))
@@ -69,6 +71,7 @@ export default function ReservationModal({
     setError('');
 
     if (!title.trim()) return setError('El título es obligatorio.');
+    if (isTablet && !organizer.trim()) return setError('Ingresa tu nombre como organizador.');
     if (!organizer.trim()) return setError('El organizador es obligatorio.');
     if (startTime >= endTime) return setError('La hora de fin debe ser posterior a la de inicio.');
 
@@ -142,12 +145,20 @@ export default function ReservationModal({
 
           {/* Organizador */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Organizador</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Organizador {isTablet && <span className="text-gray-400 font-normal">(tu nombre)</span>}
+            </label>
             <input
               type="text"
               value={organizer}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-default"
+              onChange={isTablet ? e => setOrganizer(e.target.value) : undefined}
+              readOnly={!isTablet}
+              placeholder={isTablet ? 'Ingresa tu nombre...' : ''}
+              className={`w-full px-3 py-2 border rounded-lg text-sm
+                focus:outline-none focus:ring-2 focus:ring-[#2db135] focus:border-transparent
+                ${isTablet
+                  ? 'border-gray-300'
+                  : 'border-gray-200 bg-gray-50 text-gray-500 cursor-default'}`}
             />
           </div>
 

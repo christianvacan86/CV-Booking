@@ -18,7 +18,7 @@ export interface Reservation {
   description?: string;
 }
 
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'user' | 'tablet';
 
 export interface User {
   id: string;
@@ -26,4 +26,5 @@ export interface User {
   password: string; // texto plano (prototipo)
   name: string;
   role: UserRole;
+  roomId?: string; // solo para rol tablet: sala asignada
 }

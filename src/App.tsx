@@ -15,6 +15,7 @@ import ReservationModal from './components/ReservationModal';
 import RoomManagement from './components/RoomManagement';
 import Sidebar from './components/Sidebar';
 import LoginScreen from './components/LoginScreen';
+import TabletView from './components/TabletView';
 
 type ActiveView = 'calendar' | 'rooms';
 
@@ -94,6 +95,25 @@ export default function App() {
   // ── Pantalla de login ──
   if (!currentUser) {
     return <LoginScreen onLogin={user => setCurrentUser(user)} />;
+  }
+
+  // ── Vista tablet ──
+  if (currentUser.role === 'tablet') {
+    const tabletRoom = rooms.find(r => r.id === currentUser.roomId);
+    if (!tabletRoom) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#f0f2f4]">
+          <p className="text-gray-500">Sala no encontrada para este usuario tablet.</p>
+        </div>
+      );
+    }
+    return (
+      <TabletView
+        user={currentUser}
+        room={tabletRoom}
+        onLogout={() => setCurrentUser(null)}
+      />
+    );
   }
 
   const pageTitle = activeView === 'calendar' ? 'Reserva de Salas' : 'Administrar Salas';
