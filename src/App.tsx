@@ -131,7 +131,7 @@ export default function App() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="text-white font-semibold text-base tracking-wide">{pageTitle}</span>
+        <span className="text-white font-semibold text-base tracking-wide">Reserva de Salas de Reuniones</span>
         <div className="flex-1" />
         <div className="flex items-center gap-1.5 text-white/90 text-sm">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +182,7 @@ export default function App() {
                   </svg>
                 )}
               </div>
-              <span className="font-semibold text-gray-800 text-base">{pageTitle}</span>
+              <span className="font-semibold text-gray-800 text-base">Reserva de Salas de Reuniones</span>
             </div>
 
             <div className="flex-1" />
