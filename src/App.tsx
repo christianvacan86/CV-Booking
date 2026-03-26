@@ -66,6 +66,11 @@ export default function App() {
     setModal({ open: false });
   }, []);
 
+  const handleReservationUpdate = useCallback((res: Reservation) => {
+    updateReservation(res);
+    setReservations(getReservations());
+  }, []);
+
   const todayReservations = reservations.filter(
     r => r.date === formatDateISO(new Date())
   );
@@ -241,6 +246,7 @@ export default function App() {
                 selectedRoomId={selectedRoomId}
                 onSlotClick={handleSlotClick}
                 onReservationClick={handleReservationClick}
+                onReservationUpdate={handleReservationUpdate}
               />
             </div>
           </main>
