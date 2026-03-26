@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Reservation, Room } from './types';
+import type { Reservation, Room, User } from './types';
 import {
   getRooms,
   saveRooms,
@@ -9,13 +9,12 @@ import {
   deleteReservation,
 } from './store';
 import { getWeekLabel, nextWeek, prevWeek, formatDateISO } from './utils/dateUtils';
+import { getCurrentUser } from './userStore';
 import WeekCalendar from './components/WeekCalendar';
 import ReservationModal from './components/ReservationModal';
-import RoomsPanel from './components/RoomsPanel';
 import RoomManagement from './components/RoomManagement';
-import ZaimellaLogo from './components/ZaimellaLogo';
-
-const APP_USER = 'cvaca';
+import Sidebar from './components/Sidebar';
+import LoginScreen from './components/LoginScreen';
 
 type ActiveView = 'calendar' | 'rooms';
 
@@ -28,6 +27,7 @@ interface ModalState {
 }
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => getCurrentUser());
   const [rooms, setRooms] = useState<Room[]>(() => getRooms());
   const [reservations, setReservations] = useState(() => getReservations());
   const [weekRef, setWeekRef] = useState(new Date());
@@ -42,14 +42,16 @@ export default function App() {
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
+  // ── Handlers ──
   const handleSlotClick = useCallback((date: Date, time: string) => {
+    if (!currentUser) return;
     setModal({
       open: true,
       initialDate: date,
       initialTime: time,
       initialRoomId: selectedRoomId ?? rooms[0]?.id,
     });
-  }, [selectedRoomId, rooms]);
+  }, [selectedRoomId, rooms, currentUser]);
 
   const handleReservationClick = useCallback((res: Reservation) => {
     setModal({ open: true, editing: res });
@@ -72,9 +74,13 @@ export default function App() {
   }, []);
 
   const handleReservationUpdate = useCallback((res: Reservation) => {
+    // Drag & drop: solo el dueno o admin puede mover
+    if (!currentUser) return;
+    const original = reservations.find(r => r.id === res.id);
+    if (original && currentUser.role !== 'admin' && original.userId !== currentUser.id) return;
     updateReservation(res);
     setReservations(getReservations());
-  }, []);
+  }, [currentUser, reservations]);
 
   const handleRoomsChange = useCallback((updated: Room[]) => {
     saveRooms(updated);
@@ -85,34 +91,17 @@ export default function App() {
     r => r.date === formatDateISO(new Date())
   );
 
-  // ── Sidebar nav items ──
-  const navItems: Array<{ id: ActiveView; label: string; icon: React.ReactNode }> = [
-    {
-      id: 'calendar',
-      label: 'Reservas',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'rooms',
-      label: 'Administrar Salas',
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      ),
-    },
-  ];
+  // ── Pantalla de login ──
+  if (!currentUser) {
+    return <LoginScreen onLogin={user => setCurrentUser(user)} />;
+  }
+
+  const pageTitle = activeView === 'calendar' ? 'Reserva de Salas' : 'Administrar Salas';
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0f2f4]">
 
-      {/* ── Barra superior ── */}
+      {/* Barra superior */}
       <header className="flex items-center h-11 px-3 bg-[#2db135] flex-shrink-0 z-30 shadow-sm">
         <button
           onClick={() => setSidebarOpen(v => !v)}
@@ -122,121 +111,39 @@ export default function App() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-
-        <span className="text-white font-semibold text-base tracking-wide">
-          {activeView === 'calendar' ? 'Reserva de Salas' : 'Administrar Salas'}
-        </span>
-
+        <span className="text-white font-semibold text-base tracking-wide">{pageTitle}</span>
         <div className="flex-1" />
-
-        <div className="flex items-center gap-1.5 text-white/90 text-sm cursor-pointer hover:text-white">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-1.5 text-white/90 text-sm">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span>{APP_USER}</span>
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
+          <span>{currentUser.name}</span>
+          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium
+            ${currentUser.role === 'admin' ? 'bg-white/20 text-white' : 'bg-white/10 text-white/70'}`}>
+            {currentUser.role === 'admin' ? 'Admin' : 'Usuario'}
+          </span>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Sidebar ── */}
+        {/* Sidebar colapsable */}
         {sidebarOpen && (
-          <aside className="w-52 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto z-20">
-
-            {/* Logo */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-center">
-              <ZaimellaLogo className="h-9 w-auto" />
-            </div>
-
-            {/* Navegacion principal */}
-            <nav className="py-2 border-b border-gray-100">
-              {navItems.map(item => {
-                const isActive = activeView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveView(item.id)}
-                    className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left w-full group
-                      ${isActive
-                        ? 'bg-[#e8f5e9] text-[#2db135] font-medium border-r-2 border-[#2db135]'
-                        : 'text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    <span className={isActive ? 'text-[#2db135]' : 'text-gray-400 group-hover:text-gray-500'}>
-                      {item.icon}
-                    </span>
-                    <span className="flex-1">{item.label}</span>
-                    <svg
-                      className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-[#2db135]' : 'text-gray-300 group-hover:text-gray-400'}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Filtro de salas (solo en vista calendario) */}
-            {activeView === 'calendar' && (
-              <div className="flex-1 py-2">
-                <RoomsPanel
-                  rooms={rooms}
-                  selectedRoomId={selectedRoomId}
-                  onSelect={setSelectedRoomId}
-                />
-
-                {/* Reservas de hoy */}
-                {todayReservations.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-1">
-                      Hoy
-                    </p>
-                    {todayReservations
-                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                      .map(r => {
-                        const room = rooms.find(rm => rm.id === r.roomId);
-                        return (
-                          <button
-                            key={r.id}
-                            onClick={() => handleReservationClick(r)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: room?.color ?? '#999' }}
-                              />
-                              <span className="text-xs text-gray-700 truncate">{r.title}</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 pl-4">{r.startTime}–{r.endTime}</p>
-                          </button>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Stats footer */}
-            <div className="px-4 py-3 border-t border-gray-100 flex gap-3">
-              <div className="flex-1 text-center">
-                <p className="text-base font-bold text-[#2db135]">{rooms.length}</p>
-                <p className="text-[10px] text-gray-400 uppercase">Salas</p>
-              </div>
-              <div className="w-px bg-gray-100" />
-              <div className="flex-1 text-center">
-                <p className="text-base font-bold text-[#e31e24]">{todayReservations.length}</p>
-                <p className="text-[10px] text-gray-400 uppercase">Hoy</p>
-              </div>
-            </div>
-          </aside>
+          <Sidebar
+            user={currentUser}
+            rooms={rooms}
+            selectedRoomId={selectedRoomId}
+            activeView={activeView}
+            todayReservations={todayReservations}
+            onSelectRoom={setSelectedRoomId}
+            onSelectView={setActiveView}
+            onReservationClick={handleReservationClick}
+            onLogout={() => setCurrentUser(null)}
+          />
         )}
 
-        {/* ── Contenido ── */}
+        {/* Contenido */}
         <div className="flex-1 flex flex-col overflow-hidden">
 
           {/* Sub-cabecera */}
@@ -255,38 +162,29 @@ export default function App() {
                   </svg>
                 )}
               </div>
-              <span className="font-semibold text-gray-800 text-base">
-                {activeView === 'calendar' ? 'Reserva de Salas' : 'Administrar Salas'}
-              </span>
+              <span className="font-semibold text-gray-800 text-base">{pageTitle}</span>
             </div>
 
             <div className="flex-1" />
 
-            {/* Controles solo en vista calendario */}
             {activeView === 'calendar' && (
               <>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setWeekRef(prevWeek(weekRef))}
-                    className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                  >
+                  <button onClick={() => setWeekRef(prevWeek(weekRef))}
+                    className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <button
-                    onClick={() => setWeekRef(new Date())}
-                    className="px-3 py-1 text-xs font-medium text-gray-600 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
-                  >
+                  <button onClick={() => setWeekRef(new Date())}
+                    className="px-3 py-1 text-xs font-medium text-gray-600 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
                     Hoy
                   </button>
                   <span className="text-sm text-gray-600 font-medium min-w-[175px] text-center">
                     {getWeekLabel(weekRef)}
                   </span>
-                  <button
-                    onClick={() => setWeekRef(nextWeek(weekRef))}
-                    className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                  >
+                  <button onClick={() => setWeekRef(nextWeek(weekRef))}
+                    className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -305,7 +203,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Vista activa */}
+          {/* Vista */}
           {activeView === 'calendar' ? (
             <main className="flex-1 overflow-auto bg-[#f0f2f4] p-4">
               <div className="bg-white rounded shadow-sm h-full min-h-[600px]">
@@ -327,9 +225,10 @@ export default function App() {
       </div>
 
       {/* Modal reserva */}
-      {modal.open && (
+      {modal.open && currentUser && (
         <ReservationModal
           rooms={rooms}
+          currentUser={currentUser}
           initialDate={modal.initialDate}
           initialTime={modal.initialTime}
           initialRoomId={modal.initialRoomId}
